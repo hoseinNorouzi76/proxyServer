@@ -54,7 +54,7 @@ def main():
 def proxy_thread(conn, client_addr):
 
     # get the request from browser
-    request = str(conn.recv(MAX_DATA_RECV), 'utf-8')
+    request = conn.recv(MAX_DATA_RECV).decode('ascii')
 
     # edit http version
     edited_request = change_request(request)
@@ -62,13 +62,12 @@ def proxy_thread(conn, client_addr):
 
     # find the webserver and port
     webserver, port = find_webserver_and_port(edited_request)
-    print(webserver, port)
     try:
         # create a socket to connect to the web server
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((webserver, port))
         # send request to webserver
-        s.send(edited_request.encode('utf-8'))
+        s.send(edited_request.encode('ascii'))
 
         while 1:
             # receive data from web server
@@ -94,7 +93,7 @@ def proxy_thread(conn, client_addr):
 # **************************************
 
 def change_request(request):
-    return change_start_line(request)
+    return remove_proxy_connection_field(change_start_line(request))
 
 
 def change_start_line(request):
@@ -115,6 +114,14 @@ def find_webserver_and_port(request):
     if(port_pos == -1):
         return temp, 80
     return temp[0:port_pos], int(temp[port_pos+1:])
+
+
+def remove_proxy_connection_field(request):
+    temp = ''
+    for line in request.split('\r\n'):
+        if(line.find('Proxy-Connection') == -1):
+            temp += line + '\r\n'
+    return temp
 
 
 if __name__ == '__main__':
