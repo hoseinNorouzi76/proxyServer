@@ -54,46 +54,21 @@ def main():
 def proxy_thread(conn, client_addr):
 
     # get the request from browser
-    request = conn.recv(MAX_DATA_RECV)
-    # parse the first line
-    temp = replace_http_version(str(request, 'utf-8'))
-    print(temp)
+    request = str(conn.recv(MAX_DATA_RECV), 'utf-8')
+
     # edit http version
-
-    list_req = str(temp).split('\r\n')
-    first_line = list_req[0]
-
-    # get url
-    url = first_line.split(' ')[1]
+    edited_request = change_request(request)
+    print(edited_request)
 
     # find the webserver and port
-    http_pos = url.find("://")          # find pos of ://
-    if (http_pos == -1):
-        temp = url
-    else:
-        temp = url[(http_pos+3):]       # get the rest of url
-
-    port_pos = temp.find(":")           # find the port pos (if any)
-
-    # find end of web server
-    webserver_pos = temp.find("/")
-    if webserver_pos == -1:
-        webserver_pos = len(temp)
-
-    webserver = ""
-    port = -1
-    if (port_pos == -1 or webserver_pos < port_pos):      # default port
-        port = 80
-        webserver = temp[:webserver_pos]
-    else:       # specific port
-        port = int((temp[(port_pos+1):])[:webserver_pos-port_pos-1])
-        webserver = temp[:port_pos]
-
+    webserver, port = find_webserver_and_port(edited_request)
+    print(webserver, port)
     try:
         # create a socket to connect to the web server
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((webserver, port))
-        s.send(temp.encode('utf-8'))         # send request to webserver
+        # send request to webserver
+        s.send(edited_request.encode('utf-8'))
 
         while 1:
             # receive data from web server
@@ -111,7 +86,6 @@ def proxy_thread(conn, client_addr):
             s.close()
         if conn:
             conn.close()
-        # print("Peer Reset", first_line, client_addr)
         sys.exit(1)
 
 
@@ -119,9 +93,28 @@ def proxy_thread(conn, client_addr):
 # ********* HELPER FUNCTIONS ***********
 # **************************************
 
-def replace_http_version(request):
-    temp = request.split('HTTP/1.')
-    return temp[0] + 'HTTP/1.0' + temp[1][1:]
+def change_request(request):
+    return change_start_line(request)
+
+
+def change_start_line(request):
+    http_version_pos = request.find('HTTP/1.')
+    temp = request[0:http_version_pos].split(' ')
+    return temp[0] + ' ' + get_routes(temp[1]) + ' HTTP/1.0 ' + request[http_version_pos + 8:]
+
+
+def get_routes(url):
+    temp = url[(url.find("://") + 3):]
+    return '/' + temp[temp.find('/')+1:]
+
+
+def find_webserver_and_port(request):
+    temp = request[request.find('Host:') + 6:]
+    temp = temp[0:temp.find('\r\n')]
+    port_pos = temp.find(':')
+    if(port_pos == -1):
+        return temp, 80
+    return temp[0:port_pos], int(temp[port_pos+1:])
 
 
 if __name__ == '__main__':
