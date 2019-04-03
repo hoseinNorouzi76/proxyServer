@@ -45,12 +45,6 @@ def main():
         _thread.start_new_thread(proxy_thread, (conn, client_addr))
 
     soc.close()
-# ************** END MAIN PROGRAM ***************
-
-
-def printReq(request):
-    for line in request:
-        print(line, end="\n")
 
 
 # *******************************************
@@ -62,10 +56,13 @@ def proxy_thread(conn, client_addr):
     # get the request from browser
     request = conn.recv(MAX_DATA_RECV)
     # parse the first line
-    temp = str(request, 'utf-8')
+    temp = replace_http_version(str(request, 'utf-8'))
+    print(temp)
+    # edit http version
+
     list_req = str(temp).split('\r\n')
     first_line = list_req[0]
-    print(temp)
+
     # get url
     url = first_line.split(' ')[1]
 
@@ -96,7 +93,7 @@ def proxy_thread(conn, client_addr):
         # create a socket to connect to the web server
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((webserver, port))
-        s.send(request)         # send request to webserver
+        s.send(temp.encode('utf-8'))         # send request to webserver
 
         while 1:
             # receive data from web server
@@ -118,6 +115,14 @@ def proxy_thread(conn, client_addr):
         sys.exit(1)
 
 
-# ********** END PROXY_THREAD ***********
+# **************************************
+# ********* HELPER FUNCTIONS ***********
+# **************************************
+
+def replace_http_version(request):
+    temp = request.split('HTTP/1.')
+    return temp[0] + 'HTTP/1.0' + temp[1][1:]
+
+
 if __name__ == '__main__':
     main()
