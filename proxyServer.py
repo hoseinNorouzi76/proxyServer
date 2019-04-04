@@ -4,6 +4,7 @@ import _thread
 import socket
 import json
 import time
+import base64
 
 
 # ********* CONSTANT VARIABLES *********
@@ -83,6 +84,18 @@ def proxy_thread(conn, client_addr, config, _write_file):
 
     # find the webserver and port
     webserver, port = find_webserver_and_port(edited_request)
+
+    # restriction
+    if(config["restriction"]["enable"]):
+        for target in config["restriction"]["targets"]:
+            if(target["URL"] == webserver):
+                if(target["notify"]):
+                    send_email(request)
+                conn.send("HTTP/1.0 403 Forbidden".encode('ascii'))
+                conn.close()
+                _write_file("restricted")
+                sys.exit(1)
+
     try:
         # create a socket to connect to the web server
         _write_file("Proxy opening connection to server" + webserver)
@@ -173,6 +186,67 @@ def privacy(request, new_user_agent):
         else:
             temp += "User-Agent: " + new_user_agent + '\r\n'
     return temp
+
+
+def send_email(message):
+    msg = "\r\n " + message
+    endmsg = "\r\n.\r\n"
+
+    mailserver = ("mail.ut.ac.ir", 25)
+    clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    clientSocket.connect(mailserver)
+    recv = clientSocket.recv(1024)
+    recv = recv.decode()
+
+    if recv[:3] != '220':
+        print('220 reply not received from server.')
+
+    heloCommand = 'EHLO mail.ut.ac.ir\r\n'
+    clientSocket.send(heloCommand.encode())
+    recv1 = clientSocket.recv(1024)
+    recv1 = recv1.decode()
+
+    if recv1[:3] != '250':
+        print('250 reply not received from server.')
+
+    # Info for username and password
+    username = "hosein.norouzi76"
+    password = "Hn2130567827"
+    base64_str = ("\x00"+username+"\x00"+password).encode()
+    base64_str = base64.b64encode(base64_str)
+    authMsg = "AUTH PLAIN ".encode()+base64_str+"\r\n".encode()
+    clientSocket.send(authMsg)
+    clientSocket.recv(1024)
+
+    mailFrom = "MAIL FROM: <hosein.norouzi76@ut.ac.ir> \r\n"
+    clientSocket.send(mailFrom.encode())
+    recv2 = clientSocket.recv(1024)
+    recv2 = recv2.decode()
+
+    rcptTo = "RCPT TO: <hosein.norouzi76@yahoo.com> \r\n"
+    clientSocket.send(rcptTo.encode())
+    recv3 = clientSocket.recv(1024)
+    recv3 = recv3.decode()
+
+    data = "DATA\r\n"
+    clientSocket.send(data.encode())
+    recv4 = clientSocket.recv(1024)
+    recv4 = recv4.decode()
+
+    subject = "Subject: restriction\r\n\r\n"
+    clientSocket.send(subject.encode())
+    date = time.strftime("[%a, %d %b %Y %H:%M:%S]", time.gmtime())
+    date = date + "\r\n\r\n"
+    clientSocket.send(date.encode())
+    clientSocket.send(msg.encode())
+    clientSocket.send(endmsg.encode())
+    clientSocket.recv(1024)
+
+    quit = "QUIT\r\n"
+    clientSocket.send(quit.encode())
+    recv5 = clientSocket.recv(1024)
+    print(recv5.decode())
+    clientSocket.close()
 
 
 if __name__ == '__main__':
