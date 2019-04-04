@@ -78,7 +78,7 @@ def proxy_thread(conn, client_addr, config, _write_file):
     _write_file("\n---------------------\n" + request)
 
     # edit http version
-    edited_request = change_request(request)
+    edited_request = change_request(request, config)
     print(edited_request)
 
     # find the webserver and port
@@ -123,8 +123,11 @@ def proxy_thread(conn, client_addr, config, _write_file):
 # ********* HELPER FUNCTIONS ***********
 # **************************************
 
-def change_request(request):
-    return remove_proxy_connection_field(change_start_line(request))
+def change_request(request, config):
+    temp = remove_proxy_connection_field(change_start_line(request))
+    if(config["privacy"]["enable"]):
+        temp = privacy(temp, config["privacy"]["userAgent"])
+    return temp
 
 
 def change_start_line(request):
@@ -160,6 +163,16 @@ def write_file(file, text, enable):
     print(temp_time + text)
     if(enable):
         file.write(temp_time + text + '\n')
+
+
+def privacy(request, new_user_agent):
+    temp = ''
+    for line in request.split('\r\n'):
+        if(line.find('User-Agent') == -1):
+            temp += line + '\r\n'
+        else:
+            temp += "User-Agent: " + new_user_agent + '\r\n'
+    return temp
 
 
 if __name__ == '__main__':
