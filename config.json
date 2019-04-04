@@ -8,7 +8,7 @@
 
   "caching": {
     "enable": true,
-	 "size": 200
+    "size": 200
   },
 
   "privacy": {
@@ -29,20 +29,20 @@
       }
     ]
   },
-  
-	"accounting":{
-		"users":[
-			{
-				"IP": "127.0.0.1",
-				"volume":"80000000" 
-			}
-		]
-	},
-	
+
+  "accounting": {
+    "users": [
+      {
+        "IP": "127.0.0.1",
+        "volume": "80000000"
+      }
+    ]
+  },
+
   "HTTPInjection": {
-    "enable": true,
+    "enable": false,
     "post": {
-      "body": "پروژه 2 درس شبکه های کامپیوتری"
+      "body": "hello world"
     }
   }
 }

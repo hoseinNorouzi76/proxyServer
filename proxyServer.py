@@ -20,13 +20,13 @@ def main():
 
     # read file
 
-    with open('config.json', 'r') as myfile:
+    with open("config.json", "r") as myfile:
         data = myfile.read()
     obj = json.loads(data)
 
     # host and port info.
     port = obj["port"]
-    host = 'localhost'
+    host = "localhost"
 
     # make log file
     file = open(obj["logging"]["logFile"], "w")
@@ -91,7 +91,7 @@ def proxy_thread(conn, client_addr, config, _write_file):
             if(target["URL"] == webserver):
                 if(target["notify"]):
                     send_email(request)
-                conn.send("HTTP/1.0 403 Forbidden".encode('ascii'))
+                conn.send("HTTP/1.0 403 Forbidden".encode("ascii"))
                 conn.close()
                 _write_file("restricted")
                 sys.exit(1)
@@ -118,6 +118,9 @@ def proxy_thread(conn, client_addr, config, _write_file):
                 # send to browser
                 _write_file(
                     " Proxy sent response to client with headers:\n")
+                # html injection
+                if(config["HTTPInjection"]["enable"] and is_html_content_type(data)):
+                    data = injecting_navbar(data, config["HTTPInjection"]["post"]["body"])
 
                 conn.send(data)
             else:
@@ -144,30 +147,30 @@ def change_request(request, config):
 
 
 def change_start_line(request):
-    http_version_pos = request.find('HTTP/1.')
-    temp = request[0:http_version_pos].split(' ')
-    return temp[0] + ' ' + get_routes(temp[1]) + ' HTTP/1.0 ' + request[http_version_pos + 8:]
+    http_version_pos = request.find("HTTP/1.")
+    temp = request[0:http_version_pos].split(" ")
+    return temp[0] + " " + get_routes(temp[1]) + " HTTP/1.0 " + request[http_version_pos + 8:]
 
 
 def get_routes(url):
     temp = url[(url.find("://") + 3):]
-    return '/' + temp[temp.find('/')+1:]
+    return "/" + temp[temp.find("/")+1:]
 
 
 def find_webserver_and_port(request):
-    temp = request[request.find('Host:') + 6:]
-    temp = temp[0:temp.find('\r\n')]
-    port_pos = temp.find(':')
+    temp = request[request.find("Host:") + 6:]
+    temp = temp[0:temp.find("\r\n")]
+    port_pos = temp.find(":")
     if(port_pos == -1):
         return temp, 80
     return temp[0:port_pos], int(temp[port_pos+1:])
 
 
 def remove_proxy_connection_field(request):
-    temp = ''
-    for line in request.split('\r\n'):
-        if(line.find('Proxy-Connection') == -1):
-            temp += line + '\r\n'
+    temp = ""
+    for line in request.split("\r\n"):
+        if(line.find("Proxy-Connection") == -1):
+            temp += line + "\r\n"
     return temp
 
 
@@ -175,16 +178,16 @@ def write_file(file, text, enable):
     temp_time = time.strftime("[%a, %d %b %Y %H:%M:%S] ", time.gmtime())
     print(temp_time + text)
     if(enable):
-        file.write(temp_time + text + '\n')
+        file.write(temp_time + text + "\n")
 
 
 def privacy(request, new_user_agent):
-    temp = ''
-    for line in request.split('\r\n'):
-        if(line.find('User-Agent') == -1):
-            temp += line + '\r\n'
+    temp = ""
+    for line in request.split("\r\n"):
+        if(line.find("User-Agent") == -1):
+            temp += line + "\r\n"
         else:
-            temp += "User-Agent: " + new_user_agent + '\r\n'
+            temp += "User-Agent: " + new_user_agent + "\r\n"
     return temp
 
 
@@ -198,16 +201,16 @@ def send_email(message):
     recv = clientSocket.recv(1024)
     recv = recv.decode()
 
-    if recv[:3] != '220':
-        print('220 reply not received from server.')
+    if recv[:3] != "220":
+        print("220 reply not received from server.")
 
-    heloCommand = 'EHLO mail.ut.ac.ir\r\n'
+    heloCommand = "EHLO mail.ut.ac.ir\r\n"
     clientSocket.send(heloCommand.encode())
     recv1 = clientSocket.recv(1024)
     recv1 = recv1.decode()
 
-    if recv1[:3] != '250':
-        print('250 reply not received from server.')
+    if recv1[:3] != "250":
+        print("250 reply not received from server.")
 
     # Info for username and password
     username = "hosein.norouzi76"
@@ -249,5 +252,27 @@ def send_email(message):
     clientSocket.close()
 
 
-if __name__ == '__main__':
+def is_html_content_type(http_text):
+    for line in http_text.split("\r\n"):
+        if(line.find("Content-Type") != -1):
+            if(line.find("html") != -1):
+                return True
+            return False
+    return False
+
+def injecting_navbar(response, navbar_text):
+    start_html_pos = response.find("<!DOCTYPE html>")
+    end_html_pos = response.find("</html>") + 7
+    html_text = response[start_html_pos:end_html_pos]
+
+    injected_html = inject_text(html_text, navbar_text)
+    return response[0:start_html_pos-1] + injected_html + response[end_html_pos+1:]
+
+def inject_text(html_text, navbar_text):
+    div_pos = html_text.find("</div>")
+    if(div_pos == -1):
+        return html_text
+    return html_text[0:div_pos] + "<p>" + navbar_text +"</p>" + html_text[div_pos:]
+
+if __name__ == "__main__":
     main()
