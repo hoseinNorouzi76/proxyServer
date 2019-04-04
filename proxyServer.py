@@ -30,39 +30,39 @@ def main():
     # make log file
     file = open(obj["logging"]["logFile"], "w")
 
-    write_file(file, "Proxy launched", obj["logging"]["logFile"])
+    def _write_file(text):
+        write_file(file, text, obj["logging"]["logFile"])
+
+    _write_file("Proxy launched")
 
     try:
         # create a socket
-        write_file(file, "Creating server socket...",
-                   obj["logging"]["logFile"])
+        _write_file("Creating server socket...")
         soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         # associate the socket to host and port
-        write_file(file, " Binding socket to port " +
-                   str(port) + "...", obj["logging"]["logFile"])
+        _write_file(" Binding socket to port " + str(port) + "...")
         soc.bind((host, port))
 
         # listenning
 
-        write_file(file, "Listening for incoming requests...",
-                   obj["logging"]["logFile"])
+        _write_file("Listening for incoming requests...")
         soc.listen(BACKLOG)
 
     except (socket.error):
         if soc:
             soc.close()
-        write_file(file, "Could not open socket", obj["logging"]["logFile"])
+        _write_file("Could not open socket")
         sys.exit(1)
 
     # get the connection from client
     while 1:
         conn, client_addr = soc.accept()
-        write_file(file, "Accepted a request from client!",
-                   obj["logging"]["logFile"])
+        _write_file("Accepted a request from client!")
 
         # create a thread to handle request
-        _thread.start_new_thread(proxy_thread, (conn, client_addr, obj, file))
+        _thread.start_new_thread(
+            proxy_thread, (conn, client_addr, obj, _write_file))
 
     soc.close()
 
@@ -71,12 +71,11 @@ def main():
 # ********* PROXY_THREAD FUNC ***************
 # A thread to handle request from browser
 # *******************************************
-def proxy_thread(conn, client_addr, config, file):
+def proxy_thread(conn, client_addr, config, _write_file):
 
     # get the request from browser
     request = conn.recv(MAX_DATA_RECV).decode('ascii')
-    write_file(file, "\n---------------------\n" +
-               request, config["logging"]["logFile"])
+    _write_file("\n---------------------\n" + request)
 
     # edit http version
     edited_request = change_request(request)
@@ -86,27 +85,26 @@ def proxy_thread(conn, client_addr, config, file):
     webserver, port = find_webserver_and_port(edited_request)
     try:
         # create a socket to connect to the web server
-        write_file(file, "Proxy opening connection to server" +
-                   webserver, config["logging"]["logFile"])
+        _write_file("Proxy opening connection to server" + webserver)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((webserver, port))
-        write_file(file, "Connection opened...", config["logging"]["logFile"])
+        _write_file("Connection opened...")
 
         # send request to webserver
-        write_file(
-            file, "Proxy sent request to server with headers: \n" + edited_request, config["logging"]["logFile"])
+        _write_file(
+            "Proxy sent request to server with headers: \n" + edited_request)
         s.send(edited_request.encode('ascii'))
 
         while 1:
             # receive data from web server
             data = s.recv(MAX_DATA_RECV)
-            write_file(
-                file, " Server sent response to proxy with headers:\n", config["logging"]["logFile"])
+            _write_file(
+                " Server sent response to proxy with headers:\n")
 
             if (len(data) > 0):
                 # send to browser
-                write_file(
-                    file, " Proxy sent response to client with headers:\n", config["logging"]["logFile"])
+                _write_file(
+                    " Proxy sent response to client with headers:\n")
 
                 conn.send(data)
             else:
