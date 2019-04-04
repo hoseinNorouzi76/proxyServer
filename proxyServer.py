@@ -1,6 +1,6 @@
 import os
 import sys
-import _thread
+import thread
 import socket
 import json
 import time
@@ -33,6 +33,7 @@ def main():
 
     def _write_file(text):
         write_file(file, text, obj["logging"]["logFile"])
+        
 
     _write_file("Proxy launched")
 
@@ -62,7 +63,7 @@ def main():
         _write_file("Accepted a request from client!")
 
         # create a thread to handle request
-        _thread.start_new_thread(
+        thread.start_new_thread(
             proxy_thread, (conn, client_addr, obj, _write_file))
 
     soc.close()
@@ -75,12 +76,11 @@ def main():
 def proxy_thread(conn, client_addr, config, _write_file):
 
     # get the request from browser
-    request = conn.recv(MAX_DATA_RECV).decode('ascii')
+    request = conn.recv(MAX_DATA_RECV)
     _write_file("\n---------------------\n" + request)
 
     # edit http version
     edited_request = change_request(request, config)
-    print(edited_request)
 
     # find the webserver and port
     webserver, port = find_webserver_and_port(edited_request)
@@ -106,7 +106,7 @@ def proxy_thread(conn, client_addr, config, _write_file):
         # send request to webserver
         _write_file(
             "Proxy sent request to server with headers: \n" + edited_request)
-        s.send(edited_request.encode('ascii'))
+        s.send(edited_request)
 
         while 1:
             # receive data from web server
