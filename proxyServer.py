@@ -61,7 +61,13 @@ def main():
     while 1:
         conn, client_addr = soc.accept()
         _write_file("Accepted a request from client!")
+        # handle accounting
+        if(not has_account(client_addr, obj["accounting"]["users"])): 
+            conn.send("HTTP/1.0 403 Forbidden") 
+            conn.close()
+            continue
 
+        
         # create a thread to handle request
         thread.start_new_thread(
             proxy_thread, (conn, client_addr, obj, _write_file))
@@ -79,6 +85,12 @@ def proxy_thread(conn, client_addr, config, _write_file):
     request = conn.recv(MAX_DATA_RECV)
     _write_file("\n---------------------\n" + request)
 
+    #  decrease volume 
+    if(decrese_volume(client_addr, len(request), config["accounting"]["users"]) < 0):
+        conn.send("HTTP/1.0 403 Forbidden") 
+        conn.close() 
+        return
+
     # edit http version
     edited_request = change_request(request, config)
 
@@ -91,7 +103,7 @@ def proxy_thread(conn, client_addr, config, _write_file):
             if(target["URL"] == webserver):
                 if(target["notify"]):
                     send_email(request)
-                conn.send("HTTP/1.0 403 Forbidden".encode("ascii"))
+                conn.send("HTTP/1.0 403 Forbidden")
                 conn.close()
                 _write_file("restricted")
                 sys.exit(1)
@@ -113,14 +125,22 @@ def proxy_thread(conn, client_addr, config, _write_file):
             data = s.recv(MAX_DATA_RECV)
             _write_file(
                 " Server sent response to proxy with headers:\n")
+            
 
             if (len(data) > 0):
                 # send to browser
                 _write_file(
                     " Proxy sent response to client with headers:\n")
+
                 # html injection
                 if(config["HTTPInjection"]["enable"] and is_html_content_type(data)):
                     data = injecting_navbar(data, config["HTTPInjection"]["post"]["body"])
+
+                #  decrease volume 
+                if(decrese_volume(client_addr, len(request), config["accounting"]["users"]) < 0):
+                    conn.send("HTTP/1.0 403 Forbidden") 
+                    conn.close() 
+                    return
 
                 conn.send(data)
             else:
@@ -260,6 +280,7 @@ def is_html_content_type(http_text):
             return False
     return False
 
+
 def injecting_navbar(response, navbar_text):
     start_html_pos = response.find("<!DOCTYPE html>")
     end_html_pos = response.find("</html>") + 7
@@ -268,11 +289,28 @@ def injecting_navbar(response, navbar_text):
     injected_html = inject_text(html_text, navbar_text)
     return response[0:start_html_pos-1] + injected_html + response[end_html_pos+1:]
 
+
 def inject_text(html_text, navbar_text):
     div_pos = html_text.find("</div>")
     if(div_pos == -1):
         return html_text
     return html_text[0:div_pos] + "<p>" + navbar_text +"</p>" + html_text[div_pos:]
+
+
+def has_account(client_address, users):
+    for user in users:
+        if(user["IP"] == client_address[0]):
+            if(int(user["volume"]) > 0):
+                return True
+            return False
+    return False
+
+
+def decrese_volume(client_address, size, users):
+    for user in users:
+        if(user["IP"] == client_address[0]):
+            user["volume"] =  int(user["volume"]) - size
+            return user["volume"]
 
 if __name__ == "__main__":
     main()
